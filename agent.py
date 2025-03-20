@@ -4,29 +4,15 @@ from langchain_openai import ChatOpenAI
 from browser_use import Agent as BrowserAgent, Browser, BrowserConfig
 from pydantic import BaseModel, Field
 import asyncio
-from python_repl import PythonREPL
+from mcp_client import MCPClient
 
 load_dotenv()
 
 browser = Browser(
-    config=BrowserConfig(
-        chrome_instance_path='C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-    )
+    # config=BrowserConfig(
+    #     chrome_instance_path='C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+    # )
 )
-
-@function_tool
-def execute_code(code: str) -> str:
-    """
-    Execute the code and return the output.
-    
-    args:
-        code: The code to execute
-        
-    returns:
-        str: The output of the code
-    """
-    python_repl = PythonREPL()
-    python_repl.run(code)
 
 @function_tool
 async def search_web(query: str) -> str:
@@ -57,7 +43,6 @@ developer = Agent(
     Test code with the tool before returning it.
     """,
     handoff_description="Specialist agent developing code",
-    tools=[execute_code]
 )
 
 tester = Agent(
@@ -67,7 +52,6 @@ tester = Agent(
     You have a tool to execute and debug code.
     """,
     handoff_description="Specialist agent for testing code",
-    tools=[execute_code]
 )
 
 researcher = Agent(
@@ -103,33 +87,28 @@ manager = Agent(
 
 
 async def main():
-    result = Runner.run_streamed(manager, "write a python script to get the os version")
+    agent = Agent(
+        name="Assistant",
+        instructions=f"""
+        Use the available tools to help the user with their requests.
+        When using tools, provide clear and concise responses based on the tool output.
+        
+        If you have a tool to execute code, write python code in a code block to perform any calculations or analysis.
+        Write code in a code blocks
+        ```python
+        code
+        ```
+        """,
+        tools=[search_web]
+    )
     
-    print("=== Thread starting ===")
-
-    async for event in result.stream_events():
-        # We'll ignore the raw responses event deltas
-        if event.type == "raw_response_event":
-            continue
-        # When the agent updates, print that
-        elif event.type == "agent_updated_stream_event":
-            print(f"Agent updated: {event.new_agent.name}")
-            continue
-        # When items are generated, print them
-        elif event.type == "run_item_stream_event":
-            if event.item.type == "tool_call_item":
-                print("-- Tool was called")
-            elif event.item.type == "tool_call_output_item":
-                print(f"-- Tool output: {event.item.output}")
-            elif event.item.type == "message_output_item":
-                print(f"-- Message output:\n {ItemHelpers.text_message_output(event.item)}")
-            else:
-                pass  # Ignore other event types
-            
-    print("=== Thread complete ===")
+    client = MCPClient(agent)
     
-    input("Press Enter to exit...")
-    await browser.close()
+    try:
+        await client.connect_to_server("mcp_server.py")
+        await client.chat_loop()
+    finally:
+        await client.cleanup()
    
 if __name__ == "__main__":
     asyncio.run(main())
