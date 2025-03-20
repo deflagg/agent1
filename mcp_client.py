@@ -61,6 +61,7 @@ class MCPClient:
         mcp_tools = response.tools  # Extract the tool list from the response
 
         # Print a message showing the names of the tools available on the server
+        tools_names_str = ", ".join([tool.name for tool in mcp_tools])
         print("\nConnected to server with tools:", [tool.name for tool in mcp_tools])
 
         # Convert MCP tools to OpenAI Agents SDK function tools
@@ -73,6 +74,13 @@ class MCPClient:
             You are a helpful assistant with access to various tools.
             Use the available tools to help the user with their requests.
             When using tools, provide clear and concise responses based on the tool output.
+            tools: {tools_names_str}
+            
+            If you have a tool to execute code, write python code in a code block to perform any calculations or analysis.
+            Write code in a code blocks
+            ```python
+            code
+            ```
             """,
             tools=agent_tools
         )
@@ -89,11 +97,6 @@ class MCPClient:
             tool_name = tool.name
             tool_description = tool.description if hasattr(tool, "description") else ""
             tool_schema = tool.inputSchema if hasattr(tool, "inputSchema") else {}
-
-            # Add these debug prints right before the if statement:
-            print(f"tool_schema: {tool_schema}, type: {type(tool_schema)}")
-            print(f"tool_schema.type: {getattr(tool_schema, 'type', 'NOT FOUND')}, type: {type(getattr(tool_schema, 'type', None))}")
-            print(f"Comparison result: {getattr(tool_schema, 'type', None) != 'object'}")
 
             # Ensure the input schema is a valid JSON schema for the tool's parameters
             if not tool_schema or tool_schema.get("type") != "object":

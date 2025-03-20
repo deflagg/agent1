@@ -1,9 +1,24 @@
 # server.py
 from mcp.server.fastmcp import FastMCP
+from python_repl import PythonREPL
 
 # Create an MCP server
 mcp = FastMCP("demo-server")
 
+@mcp.tool()
+def execute_code(code: str) -> str:
+    """
+    Execute the code and return the output.
+    Perform any calculations
+    Args:
+        code: The code to execute
+    Returns:
+        str: The output of the code
+    """
+    print(f"Executing code on the server: {code}")
+    python_repl = PythonREPL()
+    result =python_repl.run(code)
+    return result
 
 # Add an addition tool
 @mcp.tool()
