@@ -1,10 +1,15 @@
 from dotenv import load_dotenv
 from agents import Agent, Runner, function_tool, AgentHooks, ItemHelpers
+from agents.voice import SingleAgentVoiceWorkflow, SingleAgentWorkflowCallbacks, VoicePipeline, AudioInput
 from langchain_openai import ChatOpenAI
 from browser_use import Agent as BrowserAgent, Browser, BrowserConfig
 from pydantic import BaseModel, Field
 import asyncio
 from mcp_client import MCPClient
+import numpy as np
+import sounddevice as sd
+
+from util import AudioPlayer, record_audio
 
 load_dotenv()
 
@@ -38,11 +43,11 @@ async def search_web(query: str) -> str:
 developer = Agent(
     name="Developer",
     instructions="""
+    Your name is Tubo Magellan.
     You are a developer who develops code.
     You have a tool to execute and debug code.
     Test code with the tool before returning it.
-    """,
-    handoff_description="Specialist agent developing code",
+    """
 )
 
 tester = Agent(
@@ -83,11 +88,7 @@ manager = Agent(
     model="gpt-4o"
 )
 
-
-
-
-async def main():
-    agent = Agent(
+agent = Agent(
         name="Assistant",
         instructions=f"""
         Use the available tools to help the user with their requests.
@@ -99,14 +100,43 @@ async def main():
         code
         ```
         """,
+        handoffs=[developer],
         tools=[search_web]
     )
+
+class WorkflowCallbacks(SingleAgentWorkflowCallbacks):
+    def on_run(self, workflow: SingleAgentVoiceWorkflow, transcription: str) -> None:
+        print(f"[debug] on_run called with transcription: {transcription}")
+
+async def main():
+    voice_mode = True
     
+    client1 = MCPClient(developer)
+    agent.handoffs.append(client1.agent)
     client = MCPClient(agent)
+    
     
     try:
         await client.connect_to_server("mcp_server.py")
-        await client.chat_loop()
+        
+        if voice_mode == True:
+            pipeline = VoicePipeline(
+                workflow=SingleAgentVoiceWorkflow(agent, callbacks=WorkflowCallbacks())
+            )
+
+            audio_input = AudioInput(buffer=record_audio())
+
+            result = await pipeline.run(audio_input)
+
+            with AudioPlayer() as player:
+                async for event in result.stream():
+                    if event.type == "voice_stream_event_audio":
+                        player.add_audio(event.data)
+                        print("Received audio")
+                    elif event.type == "voice_stream_event_lifecycle":
+                        print(f"Received lifecycle event: {event.event}")
+        else:
+            await client.chat_loop()
     finally:
         await client.cleanup()
    
