@@ -5,27 +5,13 @@ from agents import Agent, Runner, TResponseInputItem, function_tool, AgentHooks,
 from agents.voice import (
     SingleAgentVoiceWorkflow,
     SingleAgentWorkflowCallbacks,
-    VoicePipeline,
-    AudioInput,
     VoiceWorkflowBase,
     VoiceWorkflowHelper
 )
 from langchain_openai import ChatOpenAI
 from browser_use import Agent as BrowserAgent, Browser, BrowserConfig
 from pydantic import BaseModel, Field
-import asyncio
 from mcp_client import MCPClient
-import numpy as np
-import sounddevice as sd
-
-from textual import events
-from textual.app import App, ComposeResult
-from textual.containers import Container
-from textual.reactive import reactive
-from textual.widgets import Button, RichLog, Static
-from typing_extensions import override
-
-from util import AudioPlayer, record_audio
 
 load_dotenv()
 

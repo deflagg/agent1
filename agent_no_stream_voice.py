@@ -1,4 +1,11 @@
-from agent import agent, developer, VoiceMode, WorkflowCallbacks, VoicePipeline, AudioInput, SingleAgentVoiceWorkflow
+from agent import agent, developer, VoiceMode, WorkflowCallbacks
+
+from agents.voice import (
+    SingleAgentVoiceWorkflow,
+    VoicePipeline,
+    AudioInput
+)
+
 from util import AudioPlayer, record_audio
 from mcp_client import MCPClient
 import asyncio
