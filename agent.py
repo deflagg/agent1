@@ -1,6 +1,15 @@
+from enum import Enum
+from typing import AsyncIterator, Callable
 from dotenv import load_dotenv
-from agents import Agent, Runner, function_tool, AgentHooks, ItemHelpers
-from agents.voice import SingleAgentVoiceWorkflow, SingleAgentWorkflowCallbacks, VoicePipeline, AudioInput
+from agents import Agent, Runner, TResponseInputItem, function_tool, AgentHooks, ItemHelpers
+from agents.voice import (
+    SingleAgentVoiceWorkflow,
+    SingleAgentWorkflowCallbacks,
+    VoicePipeline,
+    AudioInput,
+    VoiceWorkflowBase,
+    VoiceWorkflowHelper
+)
 from langchain_openai import ChatOpenAI
 from browser_use import Agent as BrowserAgent, Browser, BrowserConfig
 from pydantic import BaseModel, Field
@@ -9,9 +18,17 @@ from mcp_client import MCPClient
 import numpy as np
 import sounddevice as sd
 
+from textual import events
+from textual.app import App, ComposeResult
+from textual.containers import Container
+from textual.reactive import reactive
+from textual.widgets import Button, RichLog, Static
+from typing_extensions import override
+
 from util import AudioPlayer, record_audio
 
 load_dotenv()
+
 
 browser = Browser(
     # config=BrowserConfig(
@@ -107,10 +124,63 @@ agent = Agent(
 class WorkflowCallbacks(SingleAgentWorkflowCallbacks):
     def on_run(self, workflow: SingleAgentVoiceWorkflow, transcription: str) -> None:
         print(f"[debug] on_run called with transcription: {transcription}")
+        
+ #enum for voice mode
+class VoiceMode(Enum):
+    OFF = "off"
+    ON_NO_STREAMING = "on_no_streaming"
+    ON_STREAMING = "on_streaming"
+    
+    
+class MyWorkflow(VoiceWorkflowBase):
+    def __init__(self, secret_word: str, on_start: Callable[[str], None]):
+        """
+        Args:
+            secret_word: The secret word to guess.
+            on_start: A callback that is called when the workflow starts. The transcription
+                is passed in as an argument.
+        """
+        self._input_history: list[TResponseInputItem] = []
+        self._current_agent = agent
+        self._secret_word = secret_word.lower()
+        self._on_start = on_start
+
+    async def run(self, transcription: str) -> AsyncIterator[str]:
+        self._on_start(transcription)
+
+        # Add the transcription to the input history
+        self._input_history.append(
+            {
+                "role": "user",
+                "content": transcription,
+            }
+        )
+
+        # If the user guessed the secret word, do alternate logic
+        if self._secret_word in transcription.lower():
+            yield "You guessed the secret word!"
+            self._input_history.append(
+                {
+                    "role": "assistant",
+                    "content": "You guessed the secret word!",
+                }
+            )
+            return
+
+        # Otherwise, run the agent
+        result = Runner.run_streamed(self._current_agent, self._input_history)
+
+        async for chunk in VoiceWorkflowHelper.stream_text_from(result):
+            yield chunk
+
+        # Update the input history and current agent
+        self._input_history = result.to_input_list()
+        self._current_agent = result.last_agent
 
 async def main():
-    voice_mode = True
     
+    voice_mode = VoiceMode.ON_NO_STREAMING
+
     client1 = MCPClient(developer)
     agent.handoffs.append(client1.agent)
     client = MCPClient(agent)
@@ -119,7 +189,23 @@ async def main():
     try:
         await client.connect_to_server("mcp_server.py")
         
-        if voice_mode == True:
+        if voice_mode == VoiceMode.ON_NO_STREAMING:
+            pipeline = VoicePipeline(
+                workflow=SingleAgentVoiceWorkflow(agent, callbacks=WorkflowCallbacks())
+            )
+
+            audio_input = AudioInput(buffer=record_audio())
+
+            result = await pipeline.run(audio_input)
+
+            with AudioPlayer() as player:
+                async for event in result.stream():
+                    if event.type == "voice_stream_event_audio":
+                        player.add_audio(event.data)
+                        print("Received audio")
+                    elif event.type == "voice_stream_event_lifecycle":
+                        print(f"Received lifecycle event: {event.event}")
+        elif voice_mode == VoiceMode.ON_STREAMING:
             pipeline = VoicePipeline(
                 workflow=SingleAgentVoiceWorkflow(agent, callbacks=WorkflowCallbacks())
             )
