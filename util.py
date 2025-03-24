@@ -6,6 +6,8 @@ import numpy.typing as npt
 import sounddevice as sd
 
 
+
+
 def _record_audio(screen: curses.window) -> npt.NDArray[np.float32]:
     screen.nodelay(True)  # Non-blocking input
     screen.clear()

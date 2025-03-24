@@ -12,6 +12,7 @@ from langchain_openai import ChatOpenAI
 from browser_use import Agent as BrowserAgent, Browser, BrowserConfig
 from pydantic import BaseModel, Field
 from mcp_client import MCPClient
+from dataclasses import dataclass
 
 load_dotenv()
 
@@ -118,6 +119,11 @@ class VoiceMode(Enum):
     ON_STREAMING = "on_streaming"
     
     
+@dataclass
+class VoiceStreamEventText:
+    type: str = "voice_stream_event_text"
+    text: str = ""
+
 class MyWorkflow(VoiceWorkflowBase):
     def __init__(self, secret_word: str, on_start: Callable[[str], None]):
         """
@@ -131,7 +137,7 @@ class MyWorkflow(VoiceWorkflowBase):
         self._secret_word = secret_word.lower()
         self._on_start = on_start
 
-    async def run(self, transcription: str) -> AsyncIterator[str]:
+    async def run(self, transcription: str) -> AsyncIterator[VoiceStreamEventText]:
         self._on_start(transcription)
 
         # Add the transcription to the input history
@@ -144,7 +150,7 @@ class MyWorkflow(VoiceWorkflowBase):
 
         # If the user guessed the secret word, do alternate logic
         if self._secret_word in transcription.lower():
-            yield "You guessed the secret word!"
+            yield VoiceStreamEventText(text="You guessed the secret word!")
             self._input_history.append(
                 {
                     "role": "assistant",
@@ -157,7 +163,7 @@ class MyWorkflow(VoiceWorkflowBase):
         result = Runner.run_streamed(self._current_agent, self._input_history)
 
         async for chunk in VoiceWorkflowHelper.stream_text_from(result):
-            yield chunk
+            yield VoiceStreamEventText(text=chunk)
 
         # Update the input history and current agent
         self._input_history = result.to_input_list()
