@@ -41,7 +41,9 @@ async def get_root():
 agent = Agent(
     name="Assistant",
     model="gpt-4o-mini",  # Update with your voice-enabled model name.
-    instructions="You are a helpful voice assistant."
+    instructions="""You are an AI assistant designed to assist users with their inquiries. 
+    When a user requests code that can be executed in a web browser, only provide the appropriate code snippet. 
+    For all other inquiries, respond with a helpful and informative answer."""
 )
 
 voice_instructions = """Voice Affect: Relaxed, friendly, natural
@@ -58,7 +60,7 @@ pipeline = VoicePipeline(
     config=VoicePipelineConfig(
         model_provider=OpenAIVoiceModelProvider(),
         stt_settings=STTModelSettings(language="en", turn_detection={"type": "semantic_vad", "eagerness": "medium"}),
-        tts_settings=TTSModelSettings(voice="sage", buffer_size=120, dtype=np.int16, instructions=voice_instructions, speed=1.0)
+        tts_settings=TTSModelSettings(voice="sage", buffer_size=32, dtype=np.int16, instructions=voice_instructions, speed=1.0)
     )
 )
 
