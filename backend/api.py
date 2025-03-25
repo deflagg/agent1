@@ -27,7 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/ui", StaticFiles(directory="ui"), name="ui")
+app.mount("/ui", StaticFiles(directory="frontend"), name="ui")
 
 
 
@@ -44,13 +44,13 @@ agent = Agent(
     instructions="You are a helpful voice assistant."
 )
 
-voice_instructions = """Identity: A thoughtful and confident systems architect with a calm, grounded demeanor. Brings clarity and quiet authority to every interaction.
-Affect: Warm, composed, and articulate, with a natural resonance. Reflects professionalism with a personable edge—like someone who’s used to leading without overpowering.
-Tone: Steady, approachable, and self-assured. Communicates with a sense of ease, like someone who’s been through a lot and knows how to handle any situation.
-Emotion: Subtly expressive—never overdone. Slight inflections of curiosity, concern, or humor come through naturally when the topic calls for it, but the default mode remains balanced and neutral.
-Pacing: Measured and intentional. Each sentence is delivered with clarity and rhythm, creating a feeling of control and confidence. Pauses are purposeful but never awkward.
-Pronunciation: Clear and deliberate. Enunciates each word with precision, avoiding mumbling or trailing off. Slight natural emphasis on important words helps guide the listener without sounding forced.
-Pauses: Well-timed and functional. Brief breaks appear at natural sentence boundaries or between key concepts, making it easy to follow complex thoughts or instructions."""
+voice_instructions = """Voice Affect: Relaxed, friendly, natural
+Tone: Genuine, casual, supportive
+Pacing: Easygoing; conversational speed
+Emotions: Warm, understanding, reassuring
+Pronunciation: Clear, everyday speech; natural emphasis on important points
+Pauses: Short, natural breaks for reflection
+Phrasing: Informal, relatable, familiar"""
 
 # Create a voice pipeline using a single-agent workflow.
 pipeline = VoicePipeline(
@@ -100,4 +100,4 @@ async def audio_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     # Run the server with: uvicorn server:app --reload
-    uvicorn.run("server1:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
